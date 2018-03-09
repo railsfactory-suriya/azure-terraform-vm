@@ -41,9 +41,14 @@ variable "subnet_address_space" {
   default     = "10.0.1.0/24"
 }
 
-variable "storage_account_type" {
-  description = "type of storage account"
+variable "storage_account_tier" {
+  description = "Defines the Tier of storage account to be created. Valid options are Standard and Premium."
   default     = "Standard"
+}
+
+variable "storage_replication_type" {
+  description = "Defines the Replication Type to use for this storage account. Valid options include LRS, GRS etc."
+  default     = "LRS"
 }
 
 variable "vm_size" {
