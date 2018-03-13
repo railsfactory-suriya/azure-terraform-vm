@@ -14,11 +14,18 @@ variable "name_prefix" {
   default = "production" # Append this to all resource
 }
 
-variable "WorkerCount" {
+variable "NodeCount" {
     type = "string"
-    default = "2"
+    default = "3"
 }
 
+variable "ip_addresses" {
+  default = [
+    "10.0.1.11",
+    "10.0.1.12",
+    "10.0.1.13",
+  ]
+}
 
 variable "ssh_public_key" {
   description = "public key for ssh access"

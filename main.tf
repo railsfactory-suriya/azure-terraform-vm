@@ -56,16 +56,19 @@ security_rule {
 
 # Create network interface
 resource "azurerm_network_interface" "nic" {
-  name                      = "${var.name_prefix}nic"
+  name = "${var.name_prefix}nic${count.index}"
+ count = "${length(var.ip_addresses)}"
   location                  = "${var.location}"
   resource_group_name       = "${azurerm_resource_group.rg.name}"
   network_security_group_id = "${azurerm_network_security_group.nsg.id}"
+  internal_dns_name_label = "nodeNic${count.index}"
 
   ip_configuration {
-    name                          = "${var.name_prefix}ipconfig"
+    name                          = "${var.name_prefix}ipconfig${count.index}"
     subnet_id                     = "${azurerm_subnet.subnet.id}"
-    private_ip_address_allocation = "dynamic"
-    public_ip_address_id          = "${azurerm_public_ip.publicip.id}"
+    private_ip_address_allocation = "Static"
+    private_ip_address            = "${element(var.ip_addresses, count.index)}"
+    public_ip_address_id          = "${azurerm_public_ip.publicip.*.id[count.index]}"
   }
 
   depends_on = ["azurerm_network_security_group.nsg"]
@@ -77,11 +80,12 @@ resource "azurerm_network_interface" "nic" {
 
 # Create public ip
 resource "azurerm_public_ip" "publicip" {
-  name                         = "${var.name_prefix}-ip"
+  count = "${var.NodeCount}"
+  name                         = "${var.name_prefix}-ip${count.index}"
   location                     = "${var.location}"
   resource_group_name          = "${azurerm_resource_group.rg.name}"
   public_ip_address_allocation = "dynamic"
-  domain_name_label            = "${var.hostname}"
+  domain_name_label            = "${var.hostname}${count.index}"
 
   tags {
     environment = "${var.environment}"
@@ -90,7 +94,8 @@ resource "azurerm_public_ip" "publicip" {
 
 # Create storage account for boot diagnostics
 resource "azurerm_storage_account" "stor" {
-  name                      = "${var.hostname}stor"
+  count = "${var.NodeCount}"
+  name                      = "${var.hostname}stor${count.index}"
   location                  = "${var.location}"
   resource_group_name       = "${azurerm_resource_group.rg.name}"
   account_tier              = "${var.storage_account_tier}"
@@ -103,19 +108,21 @@ resource "azurerm_storage_account" "stor" {
 
 # Create container storage
 resource "azurerm_storage_container" "storc" {
-  name                  = "${var.name_prefix}-vhds"
+  count = "${var.NodeCount}"
+  name                  = "${var.name_prefix}-vhds${count.index}"
   resource_group_name   = "${azurerm_resource_group.rg.name}"
-  storage_account_name  = "${azurerm_storage_account.stor.name}"
+  storage_account_name  = "${azurerm_storage_account.stor.*.name[count.index]}"
   container_access_type = "private"
 }
 
 # Create virtual machine
 resource "azurerm_virtual_machine" "vm" {
-  name                  = "${var.name_prefix}vm"
+  count = "${var.NodeCount}"
+	name = "${var.name_prefix}vm${count.index}"
   location              = "${var.location}"
   resource_group_name   = "${azurerm_resource_group.rg.name}"
   vm_size               = "${var.vm_size}"
-  network_interface_ids = ["${azurerm_network_interface.nic.id}"]
+  network_interface_ids = ["${element(azurerm_network_interface.nic.*.id, count.index)}"]
 
   storage_image_reference {
     publisher = "${var.image_publisher}"
@@ -126,7 +133,7 @@ resource "azurerm_virtual_machine" "vm" {
 
   storage_os_disk {
     name          = "${var.name_prefix}osdisk"
-    vhd_uri       = "${azurerm_storage_account.stor.primary_blob_endpoint}${azurerm_storage_container.storc.name}/${var.name_prefix}osdisk.vhd"
+    vhd_uri       = "${azurerm_storage_account.stor.*.primary_blob_endpoint[count.index]}${azurerm_storage_container.storc.*.name[count.index]}/${var.name_prefix}osdisk.vhd"
     caching       = "ReadWrite"
     create_option = "FromImage"
   }
@@ -158,6 +165,6 @@ output "admin_username" {
 }
 
 output "vm_fqdn" {
-  value = "${azurerm_public_ip.publicip.fqdn}"
+  value = "${azurerm_public_ip.publicip.*.fqdn}"
 }
 
